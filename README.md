@@ -1,5 +1,7 @@
 # FileServer
 
+[Changelog](CHANGELOG.md)
+
 中文 | [English](#english)
 
 ## 中文
