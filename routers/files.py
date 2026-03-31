@@ -7,7 +7,7 @@ from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 
 from config import settings
-from routers.auth import is_authenticated
+from routers.auth import get_csrf_token, is_authenticated, validate_csrf
 from tpl import templates
 
 router = APIRouter()
@@ -104,6 +104,7 @@ async def index(request: Request):
             "current_path": "",
             "mount_name": "",
             "writable": False,
+            "csrf_token": get_csrf_token(request),
         },
     )
 
@@ -158,6 +159,7 @@ async def browse(request: Request, mount_name: str, dir_path: str = ""):
             "mount_name": mount_name,
             "writable": mount.writable,
             "upload_url": f"/upload/{mount_name}/{dir_path}" if dir_path else f"/upload/{mount_name}",
+            "csrf_token": get_csrf_token(request),
         },
     )
 
@@ -208,6 +210,7 @@ async def preview(request: Request, mount_name: str, file_path: str):
             "parent_url": parent_url,
             "download_url": f"/download/{mount_name}/{file_path}",
             "raw_url": f"/raw/{mount_name}/{file_path}",
+            "csrf_token": get_csrf_token(request),
         },
     )
 
@@ -250,6 +253,7 @@ async def raw(request: Request, mount_name: str, file_path: str):
 async def upload(request: Request, mount_name: str, dir_path: str = "", file: UploadFile = File(...)):
     if not is_authenticated(request):
         raise HTTPException(401, "请先登录")
+    validate_csrf(request)
 
     mount = get_mount(mount_name)
     if not mount:
@@ -276,6 +280,7 @@ async def upload(request: Request, mount_name: str, dir_path: str = "", file: Up
 async def delete_file(request: Request, mount_name: str, file_path: str):
     if not is_authenticated(request):
         raise HTTPException(401)
+    validate_csrf(request)
 
     mount = get_mount(mount_name)
     if not mount:

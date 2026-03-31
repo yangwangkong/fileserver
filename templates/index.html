@@ -212,6 +212,8 @@
 
 {% block scripts %}
 <script>
+const csrfToken = {{ csrf_token|tojson }};
+
 function navigateTo(url) { window.location.href = url; }
 
 function filterFiles(q) {
@@ -277,7 +279,7 @@ async function startUpload() {
   btn.disabled = true;
   prog.classList.remove('hidden');
 
-  const uploadUrl = "{{ upload_url | default('') }}";
+  const uploadUrl = {{ (upload_url | default(''))|tojson }};
   let done = 0;
 
   for (const file of pendingFiles) {
@@ -285,7 +287,11 @@ async function startUpload() {
     const fd = new FormData();
     fd.append('file', file);
     try {
-      const res = await fetch(uploadUrl, { method: 'POST', body: fd });
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-CSRF-Token': csrfToken }
+      });
       if (!res.ok) {
         const data = await res.json();
         alert(`上传失败: ${data.detail || res.statusText}`);
@@ -319,7 +325,10 @@ function closeDelete() {
 async function doDelete() {
   if (!deleteTarget) return;
   const { relPath, mountName } = deleteTarget;
-  const res = await fetch(`/delete/${mountName}/${relPath}`, { method: 'DELETE' });
+  const res = await fetch(`/delete/${mountName}/${relPath}`, {
+    method: 'DELETE',
+    headers: { 'X-CSRF-Token': csrfToken }
+  });
   if (res.ok) {
     closeDelete();
     window.location.reload();

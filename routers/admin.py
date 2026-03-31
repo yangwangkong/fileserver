@@ -5,7 +5,7 @@ from fastapi import APIRouter, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from config import MountConfig, reload_settings, save_mounts, save_password, settings, verify_password
-from routers.auth import is_authenticated
+from routers.auth import get_csrf_token, is_authenticated, validate_csrf
 from tpl import templates
 
 router = APIRouter()
@@ -39,6 +39,7 @@ async def mount_settings_page(request: Request, message: str = "", error: str = 
             "writable": False,
             "message": message,
             "error": error,
+            "csrf_token": get_csrf_token(request),
         },
     )
 
@@ -50,9 +51,11 @@ async def save_mount(
     name: str = Form(...),
     path: str = Form(...),
     writable: bool = Form(default=False),
+    csrf_token: str = Form(...),
 ):
     if not is_authenticated(request):
         raise HTTPException(401, "请先登录")
+    validate_csrf(request, csrf_token)
 
     mount_name = name.strip()
     mount_path = path.strip()
@@ -94,9 +97,10 @@ async def save_mount(
 
 
 @router.post("/settings/mounts/delete")
-async def delete_mount(request: Request, name: str = Form(...)):
+async def delete_mount(request: Request, name: str = Form(...), csrf_token: str = Form(...)):
     if not is_authenticated(request):
         raise HTTPException(401, "请先登录")
+    validate_csrf(request, csrf_token)
 
     target_name = name.strip()
     mounts = [mount for mount in settings.mounts if mount.name != target_name]
@@ -114,9 +118,11 @@ async def change_password(
     current_password: str = Form(...),
     new_password: str = Form(...),
     confirm_password: str = Form(...),
+    csrf_token: str = Form(...),
 ):
     if not is_authenticated(request):
         raise HTTPException(401, "请先登录")
+    validate_csrf(request, csrf_token)
 
     if not verify_password(current_password, settings.password_hash, settings.legacy_password):
         return _redirect(error="当前密码不正确")
@@ -124,8 +130,8 @@ async def change_password(
     new_password = new_password.strip()
     confirm_password = confirm_password.strip()
 
-    if len(new_password) < 4:
-        return _redirect(error="新密码至少需要 4 位")
+    if len(new_password) < 8:
+        return _redirect(error="新密码至少需要 8 位")
     if new_password != confirm_password:
         return _redirect(error="两次输入的新密码不一致")
     if verify_password(new_password, settings.password_hash, settings.legacy_password):

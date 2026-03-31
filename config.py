@@ -1,10 +1,11 @@
-import hashlib
-import hmac
+import os
 import secrets
 import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import List, Optional
+import hashlib
+import hmac
 
 import yaml
 
@@ -31,6 +32,7 @@ BASE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 CONFIG_PATH = APP_DIR / "config.yaml"
 RUNTIME_CONFIG_PATH = APP_DIR / "runtime_config.yaml"
+ENV_SECRET_KEY = "FILESERVER_SECRET_KEY"
 
 
 def _ensure_app_dir() -> None:
@@ -49,6 +51,7 @@ def _load_runtime_config() -> dict:
     return _read_yaml(RUNTIME_CONFIG_PATH)
 
 
+
 def _save_runtime_config(data: dict) -> None:
     _ensure_app_dir()
     with open(RUNTIME_CONFIG_PATH, "w", encoding="utf-8") as f:
@@ -65,6 +68,31 @@ def _default_config_path() -> Path:
         return bundled_config
 
     raise FileNotFoundError(f"config.yaml not found at {app_config} or {bundled_config}")
+
+
+def _is_secure_secret(secret: str) -> bool:
+    lowered = (secret or "").strip().lower()
+    return bool(secret) and len(secret) >= 32 and "placeholder" not in lowered
+
+
+def _get_effective_secret_key(base_data: dict, runtime_data: dict) -> str:
+    env_secret = os.getenv(ENV_SECRET_KEY, "")
+    if _is_secure_secret(env_secret):
+        return env_secret
+
+    runtime_server = runtime_data.setdefault("server", {})
+    runtime_secret = runtime_server.get("secret_key", "")
+    if _is_secure_secret(runtime_secret):
+        return runtime_secret
+
+    base_secret = base_data["server"].get("secret_key", "")
+    if _is_secure_secret(base_secret):
+        return base_secret
+
+    generated_secret = secrets.token_urlsafe(48)
+    runtime_server["secret_key"] = generated_secret
+    _save_runtime_config(runtime_data)
+    return generated_secret
 
 
 def hash_password(password: str) -> str:
@@ -104,13 +132,12 @@ def load_config() -> Settings:
         mounts_data = base_data.get("mounts", [])
 
     runtime_auth = runtime_data.get("auth", {})
-
     mounts = [MountConfig(**m) for m in mounts_data]
 
     return Settings(
         host=base_data["server"]["host"],
         port=base_data["server"]["port"],
-        secret_key=base_data["server"]["secret_key"],
+        secret_key=_get_effective_secret_key(base_data, runtime_data),
         username=base_data["auth"]["username"],
         password_hash=runtime_auth.get("password_hash", base_data["auth"].get("password_hash", "")),
         legacy_password=runtime_auth.get("password", base_data["auth"].get("password")),
