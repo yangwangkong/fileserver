@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ file_name }} — FileServer{% endblock %}
+{% block title %}{{ file_name }} - FileServer{% endblock %}
 
 {% block header_extra %}
 <div class="flex items-center gap-2 w-full min-w-0">
@@ -20,26 +20,23 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto">
+<div class="max-w-6xl mx-auto">
 
   {% if kind == 'image' %}
-  <!-- ── Image ──────────────────────────────────────────────────────────── -->
   <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-center min-h-64">
     <img src="{{ raw_url }}" alt="{{ file_name }}"
          class="max-w-full max-h-[75vh] object-contain rounded-lg shadow" />
   </div>
 
   {% elif kind == 'video' %}
-  <!-- ── Video ──────────────────────────────────────────────────────────── -->
   <div class="bg-black rounded-xl overflow-hidden shadow-lg">
     <video controls autoplay class="w-full max-h-[80vh]" preload="metadata">
       <source src="{{ raw_url }}" />
-      您的浏览器不支持视频播放，请<a href="{{ download_url }}" class="text-blue-400 underline">下载</a>后观看。
+      您的浏览器不支持视频播放，请下载后查看。
     </video>
   </div>
 
   {% elif kind == 'audio' %}
-  <!-- ── Audio ──────────────────────────────────────────────────────────── -->
   <div class="bg-white rounded-xl border border-gray-200 p-8">
     <div class="flex flex-col items-center gap-6">
       <div class="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center">
@@ -48,26 +45,90 @@
       <p class="text-gray-700 font-medium text-lg">{{ file_name }}</p>
       <audio controls autoplay class="w-full max-w-md">
         <source src="{{ raw_url }}" />
-        您的浏览器不支持音频播放，请<a href="{{ download_url }}" class="text-blue-600 underline">下载</a>后收听。
+        您的浏览器不支持音频播放，请下载后收听。
       </audio>
     </div>
   </div>
 
   {% elif kind == 'pdf' %}
-  <!-- ── PDF ────────────────────────────────────────────────────────────── -->
   <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" style="height: 85vh;">
     <iframe src="{{ raw_url }}" class="w-full h-full border-0" title="{{ file_name }}"></iframe>
   </div>
 
+  {% elif kind in ['word', 'excel', 'powerpoint'] %}
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+    <div class="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+      <div>
+        <p class="text-sm font-medium text-gray-800">{{ file_name }}</p>
+        <p class="text-xs text-gray-400">{{ office_preview_label or 'Office 预览' }}</p>
+      </div>
+      <span class="text-xs px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-blue-700 uppercase">
+        {{ kind }}
+      </span>
+    </div>
+
+    {% if office_preview_mode == 'pdf' %}
+    <div class="px-4 pt-4">
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        当前预览已通过 LibreOffice 转换为 PDF，版式会更接近原文档。
+      </div>
+    </div>
+    <div class="p-4">
+      <div class="overflow-hidden rounded-xl border border-gray-200 bg-white" style="height: 85vh;">
+        <iframe src="{{ office_preview_url }}" class="w-full h-full border-0" title="{{ file_name }}"></iframe>
+      </div>
+    </div>
+    {% elif office_preview_mode == 'html' %}
+    <div class="p-5 max-w-none">
+      <div class="office-preview text-sm text-gray-700 leading-7">
+        {{ office_preview_html | safe }}
+      </div>
+    </div>
+    {% elif office_preview_mode == 'legacy' %}
+    <div class="p-10 text-center text-gray-500">
+      <i class="fa-solid fa-file-lines text-4xl text-gray-300 mb-3 block"></i>
+      <div class="max-w-2xl mx-auto text-sm leading-7">
+        {{ office_preview_html | safe }}
+      </div>
+    </div>
+    {% else %}
+    <div class="p-10 text-center text-red-500">
+      <i class="fa-solid fa-circle-exclamation text-4xl text-red-300 mb-3 block"></i>
+      <div class="max-w-2xl mx-auto text-sm leading-7">
+        {{ office_preview_html | safe }}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <style>
+    .office-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+      background: white;
+    }
+    .office-preview th,
+    .office-preview td {
+      border: 1px solid #d1d5db;
+      padding: 0.6rem 0.75rem;
+      vertical-align: top;
+    }
+    .office-preview th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #1f2937;
+    }
+  </style>
+
   {% elif kind == 'text' %}
-  <!-- ── Text / Code ────────────────────────────────────────────────────── -->
   <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
       <span class="text-sm text-gray-500 font-mono">{{ file_name }}</span>
-      <button onclick="copyCode()" title="复制"
+      <button onclick="copyCode(event)" title="复制"
         class="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition">
         <i class="fa-solid fa-copy"></i> 复制
       </button>
@@ -78,7 +139,7 @@
   </div>
   <script>
     document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());
-    function copyCode() {
+    function copyCode(event) {
       const text = document.getElementById('code-block').textContent;
       navigator.clipboard.writeText(text).then(() => {
         const btn = event.currentTarget;
@@ -89,7 +150,6 @@
   </script>
 
   {% else %}
-  <!-- ── Unsupported ────────────────────────────────────────────────────── -->
   <div class="bg-white rounded-xl border border-gray-200 py-20 flex flex-col items-center gap-4">
     <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
       <i class="fa-solid fa-file text-gray-400 text-4xl"></i>
