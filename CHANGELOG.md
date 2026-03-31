@@ -6,7 +6,10 @@ The format is based on Keep a Changelog, adapted to the current project history.
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+- Added LibreOffice-first Office preview with PDF rendering for improved layout fidelity
+- Added bundled LibreOffice runtime support in Windows build output
+- Added compatibility preview and conversion flow for DOC, XLS, and PPT files
+- Improved fallback preview rendering for Word, Excel, and PowerPoint files
 
 ## [2026-03-31] Security hardening
 
