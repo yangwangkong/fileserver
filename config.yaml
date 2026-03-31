@@ -1,0 +1,20 @@
+auth:
+  password: x7Qp9Zr!m2Kf_placeholder
+  username: admin
+mounts:
+- name: D
+  path: D:\
+  writable: true
+- name: E
+  path: E:\
+  writable: false
+- name: F
+  path: F:\
+  writable: false
+- name: G
+  path: G:\
+  writable: false
+server:
+  host: 0.0.0.0
+  port: 8591
+  secret_key: sK_9xV2qP7mR4zN8_placeholder

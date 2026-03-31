@@ -1,0 +1,17 @@
+auth:
+  password: x7Qp9Zr!m2Kf_placeholder
+  username: admin
+mounts:
+- name: 文档
+  path: D:/Documents
+  writable: true
+- name: 下载
+  path: D:/Downloads
+  writable: false
+- name: 图片
+  path: D:/Pictures
+  writable: false
+server:
+  host: 0.0.0.0
+  port: 8001
+  secret_key: sK_9xV2qP7mR4zN8_placeholder

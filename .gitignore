@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+build/
+dist/
+*.spec
+
+runtime_config.yaml
+fileserver_runtime.log
+console_out.txt
+console_err.txt
+tmp_build_view.txt
+
+.venv/
+venv/

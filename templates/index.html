@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}
+  {% if current_mount %}{{ current_mount.name }} - FileServer{% else %}FileServer{% endif %}
+{% endblock %}
+
+{% block header_extra %}
+<div class="flex items-center gap-2 w-full">
+  <nav class="flex items-center gap-1 text-sm flex-1 min-w-0 overflow-x-auto whitespace-nowrap">
+    <a href="/" class="text-gray-500 hover:text-blue-600 shrink-0"><i class="fa-solid fa-house"></i></a>
+    {% for crumb in breadcrumbs %}
+    <i class="fa-solid fa-chevron-right text-gray-300 text-xs shrink-0"></i>
+    {% if loop.last %}
+    <span class="text-gray-800 font-medium">{{ crumb.name }}</span>
+    {% else %}
+    <a href="{{ crumb.url }}" class="text-gray-500 hover:text-blue-600 shrink-0">{{ crumb.name }}</a>
+    {% endif %}
+    {% endfor %}
+  </nav>
+
+  <div class="relative shrink-0">
+    <input id="search-input" type="text" placeholder="搜索文件"
+      oninput="filterFiles(this.value)"
+      class="pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40 md:w-56" />
+    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+  </div>
+
+  {% if writable %}
+  <button onclick="document.getElementById('upload-modal').classList.remove('hidden')"
+    class="shrink-0 flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg transition">
+    <i class="fa-solid fa-upload"></i>
+    <span class="hidden sm:inline">上传</span>
+  </button>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block content %}
+{% if not current_mount %}
+<div class="mb-4">
+  <div class="flex items-center justify-between gap-3 mb-3">
+    <h2 class="text-lg font-semibold text-gray-700">挂载点</h2>
+    <a href="/settings/mounts" class="text-sm text-blue-600 hover:text-blue-700">管理挂载</a>
+  </div>
+  {% if mounts %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for m in mounts %}
+    <a href="/browse/{{ m.name }}"
+       class="bg-white rounded-xl border border-gray-200 p-5 flex items-center gap-4 hover:shadow-md hover:border-blue-300 transition group">
+      <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center group-hover:bg-blue-100 transition">
+        <i class="fa-solid fa-hard-drive text-blue-500 text-xl"></i>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-gray-800 truncate">{{ m.name }}</p>
+        <p class="text-xs text-gray-400 truncate mt-0.5">{{ m.path }}</p>
+      </div>
+      {% if m.writable %}
+      <span class="shrink-0 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">可写</span>
+      {% else %}
+      <span class="shrink-0 text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded-full border border-gray-200">只读</span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-500">
+    <i class="fa-solid fa-folder-tree text-3xl text-gray-300 mb-3"></i>
+    <p class="text-sm">当前还没有挂载点，请前往“挂载管理”页面添加。</p>
+  </div>
+  {% endif %}
+</div>
+
+{% else %}
+<div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+  <div class="hidden md:grid grid-cols-[auto_1fr_120px_160px_80px] gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wide">
+    <div class="w-8"></div>
+    <div>名称</div>
+    <div class="text-right">大小</div>
+    <div class="text-right">修改时间</div>
+    <div class="text-center">操作</div>
+  </div>
+
+  <div id="file-list">
+    {% if entries %}
+    {% for e in entries %}
+    <div class="file-row flex md:grid md:grid-cols-[auto_1fr_120px_160px_80px] gap-2 items-center px-4 py-3 border-b border-gray-100 last:border-0 cursor-pointer group"
+         data-name="{{ e.name | lower }}"
+         onclick="navigateTo('{{ e.browse_url if e.is_dir else e.browse_url }}')">
+      <div class="w-8 shrink-0 text-center">
+        {% if e.is_dir %}
+          <i class="fa-solid fa-folder text-amber-400 text-lg"></i>
+        {% elif e.kind == 'image' %}
+          <i class="fa-solid fa-file-image text-green-500 text-lg"></i>
+        {% elif e.kind == 'video' %}
+          <i class="fa-solid fa-file-video text-purple-500 text-lg"></i>
+        {% elif e.kind == 'audio' %}
+          <i class="fa-solid fa-file-audio text-blue-500 text-lg"></i>
+        {% elif e.kind == 'pdf' %}
+          <i class="fa-solid fa-file-pdf text-red-500 text-lg"></i>
+        {% elif e.kind == 'text' %}
+          <i class="fa-solid fa-file-code text-gray-500 text-lg"></i>
+        {% elif e.kind == 'archive' %}
+          <i class="fa-solid fa-file-zipper text-orange-500 text-lg"></i>
+        {% else %}
+          <i class="fa-solid fa-file text-gray-400 text-lg"></i>
+        {% endif %}
+      </div>
+
+      <div class="flex-1 min-w-0">
+        <span class="text-sm font-medium text-gray-700 truncate block group-hover:text-blue-600 transition">{{ e.name }}</span>
+        <span class="md:hidden text-xs text-gray-400">
+          {{ e.size_str }}
+          {% if not e.is_dir %} | {{ e.modified | int | datetimeformat }}{% endif %}
+        </span>
+      </div>
+
+      <div class="hidden md:block text-right text-sm text-gray-500">{{ e.size_str }}</div>
+      <div class="hidden md:block text-right text-sm text-gray-400">{{ e.modified | int | datetimeformat }}</div>
+
+      <div class="shrink-0 flex items-center justify-center gap-1" onclick="event.stopPropagation()">
+        {% if not e.is_dir %}
+        <a href="{{ e.download_url }}" title="下载"
+           class="w-7 h-7 flex items-center justify-center rounded hover:bg-blue-50 text-gray-400 hover:text-blue-600 transition">
+          <i class="fa-solid fa-download text-xs"></i>
+        </a>
+        {% endif %}
+        {% if writable %}
+        <button title="删除" onclick="confirmDelete('{{ e.rel_path }}', '{{ mount_name }}')"
+           class="w-7 h-7 flex items-center justify-center rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition">
+          <i class="fa-solid fa-trash text-xs"></i>
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="py-16 text-center text-gray-400">
+      <i class="fa-solid fa-folder-open text-4xl mb-3 block text-gray-300"></i>
+      <p class="text-sm">此目录为空</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<p class="text-xs text-gray-400 mt-2 px-1">共 {{ entries | length }} 项</p>
+{% endif %}
+
+{% if writable %}
+<div id="upload-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+    <div class="flex items-center justify-between px-6 py-4 border-b">
+      <h3 class="font-semibold text-gray-800">上传文件</h3>
+      <button onclick="closeUpload()" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+    </div>
+    <div class="p-6">
+      <div id="drop-zone"
+           class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 transition"
+           ondragover="event.preventDefault(); this.classList.add('dragging')"
+           ondragleave="this.classList.remove('dragging')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('file-input').click()">
+        <i class="fa-solid fa-cloud-arrow-up text-4xl text-gray-300 mb-3 block"></i>
+        <p class="text-sm text-gray-500">点击或拖拽文件到这里</p>
+        <p class="text-xs text-gray-400 mt-1">支持多文件上传</p>
+      </div>
+      <input type="file" id="file-input" multiple class="hidden" onchange="handleFiles(this.files)" />
+
+      <div id="upload-list" class="mt-4 space-y-2 max-h-48 overflow-y-auto"></div>
+
+      <div id="upload-progress" class="hidden mt-3">
+        <div class="flex justify-between text-xs text-gray-500 mb-1">
+          <span id="progress-label">上传中</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div id="progress-bar" class="bg-blue-500 h-2 rounded-full transition-all" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t flex justify-end gap-2">
+      <button onclick="closeUpload()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
+      <button id="upload-btn" onclick="startUpload()"
+        class="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50">
+        开始上传
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div id="delete-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <div class="flex items-start gap-4">
+      <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center shrink-0">
+        <i class="fa-solid fa-triangle-exclamation text-red-500"></i>
+      </div>
+      <div>
+        <h3 class="font-semibold text-gray-800">确认删除</h3>
+        <p class="text-sm text-gray-500 mt-1" id="delete-name">确定要删除这个文件吗？此操作无法撤销。</p>
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 mt-6">
+      <button onclick="closeDelete()" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">取消</button>
+      <button id="delete-confirm-btn" onclick="doDelete()"
+        class="px-4 py-2 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition">
+        删除
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function navigateTo(url) { window.location.href = url; }
+
+function filterFiles(q) {
+  const rows = document.querySelectorAll('#file-list .file-row');
+  const lower = q.toLowerCase();
+  rows.forEach(row => {
+    const name = row.dataset.name || '';
+    row.style.display = name.includes(lower) ? '' : 'none';
+  });
+}
+
+let pendingFiles = [];
+
+function closeUpload() {
+  document.getElementById('upload-modal')?.classList.add('hidden');
+  pendingFiles = [];
+  const uploadList = document.getElementById('upload-list');
+  const progress = document.getElementById('upload-progress');
+  const bar = document.getElementById('progress-bar');
+  if (uploadList) uploadList.innerHTML = '';
+  if (progress) progress.classList.add('hidden');
+  if (bar) bar.style.width = '0%';
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('drop-zone').classList.remove('dragging');
+  handleFiles(e.dataTransfer.files);
+}
+
+function handleFiles(files) {
+  for (const f of files) pendingFiles.push(f);
+  renderFileList();
+}
+
+function renderFileList() {
+  const el = document.getElementById('upload-list');
+  if (!el) return;
+  el.innerHTML = pendingFiles.map((f, i) => `
+    <div class="flex items-center gap-2 text-sm py-1">
+      <i class="fa-solid fa-file text-gray-400 w-4 text-center shrink-0"></i>
+      <span class="flex-1 truncate text-gray-700">${escHtml(f.name)}</span>
+      <span class="text-gray-400 shrink-0">${fmtSize(f.size)}</span>
+      <button onclick="removeFile(${i})" class="text-gray-400 hover:text-red-500 shrink-0">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>`).join('');
+}
+
+function removeFile(i) {
+  pendingFiles.splice(i, 1);
+  renderFileList();
+}
+
+async function startUpload() {
+  if (!pendingFiles.length) return;
+  const btn = document.getElementById('upload-btn');
+  const prog = document.getElementById('upload-progress');
+  const bar = document.getElementById('progress-bar');
+  const pct = document.getElementById('progress-pct');
+  const label = document.getElementById('progress-label');
+
+  btn.disabled = true;
+  prog.classList.remove('hidden');
+
+  const uploadUrl = "{{ upload_url | default('') }}";
+  let done = 0;
+
+  for (const file of pendingFiles) {
+    label.textContent = `上传: ${file.name}`;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const res = await fetch(uploadUrl, { method: 'POST', body: fd });
+      if (!res.ok) {
+        const data = await res.json();
+        alert(`上传失败: ${data.detail || res.statusText}`);
+      }
+    } catch (e) {
+      alert(`上传出错: ${e}`);
+    }
+    done++;
+    const p = Math.round(done / pendingFiles.length * 100);
+    bar.style.width = p + '%';
+    pct.textContent = p + '%';
+  }
+
+  label.textContent = '上传完成';
+  setTimeout(() => { closeUpload(); window.location.reload(); }, 800);
+}
+
+let deleteTarget = null;
+
+function confirmDelete(relPath, mountName) {
+  deleteTarget = { relPath, mountName };
+  document.getElementById('delete-name').textContent = `确定要删除 "${relPath.split('/').pop()}" 吗？此操作无法撤销。`;
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDelete() {
+  document.getElementById('delete-modal').classList.add('hidden');
+  deleteTarget = null;
+}
+
+async function doDelete() {
+  if (!deleteTarget) return;
+  const { relPath, mountName } = deleteTarget;
+  const res = await fetch(`/delete/${mountName}/${relPath}`, { method: 'DELETE' });
+  if (res.ok) {
+    closeDelete();
+    window.location.reload();
+  } else {
+    const data = await res.json();
+    alert(`删除失败: ${data.detail || res.statusText}`);
+  }
+}
+
+function fmtSize(bytes) {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let u = 0;
+  while (bytes >= 1024 && u < units.length - 1) { bytes /= 1024; u++; }
+  return (u === 0 ? bytes : bytes.toFixed(1)) + ' ' + units[u];
+}
+
+function escHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+</script>
+{% endblock %}

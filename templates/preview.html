@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}{{ file_name }} — FileServer{% endblock %}
+
+{% block header_extra %}
+<div class="flex items-center gap-2 w-full min-w-0">
+  <a href="{{ parent_url }}" class="shrink-0 text-gray-500 hover:text-blue-600 transition" title="返回">
+    <i class="fa-solid fa-arrow-left"></i>
+  </a>
+  <div class="flex-1 min-w-0">
+    <p class="text-sm font-medium text-gray-800 truncate">{{ file_name }}</p>
+    <p class="text-xs text-gray-400">{{ file_size }}</p>
+  </div>
+  <a href="{{ download_url }}"
+     class="shrink-0 flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg transition">
+    <i class="fa-solid fa-download"></i>
+    <span class="hidden sm:inline">下载</span>
+  </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+
+  {% if kind == 'image' %}
+  <!-- ── Image ──────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-center min-h-64">
+    <img src="{{ raw_url }}" alt="{{ file_name }}"
+         class="max-w-full max-h-[75vh] object-contain rounded-lg shadow" />
+  </div>
+
+  {% elif kind == 'video' %}
+  <!-- ── Video ──────────────────────────────────────────────────────────── -->
+  <div class="bg-black rounded-xl overflow-hidden shadow-lg">
+    <video controls autoplay class="w-full max-h-[80vh]" preload="metadata">
+      <source src="{{ raw_url }}" />
+      您的浏览器不支持视频播放，请<a href="{{ download_url }}" class="text-blue-400 underline">下载</a>后观看。
+    </video>
+  </div>
+
+  {% elif kind == 'audio' %}
+  <!-- ── Audio ──────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-200 p-8">
+    <div class="flex flex-col items-center gap-6">
+      <div class="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center">
+        <i class="fa-solid fa-music text-blue-500 text-4xl"></i>
+      </div>
+      <p class="text-gray-700 font-medium text-lg">{{ file_name }}</p>
+      <audio controls autoplay class="w-full max-w-md">
+        <source src="{{ raw_url }}" />
+        您的浏览器不支持音频播放，请<a href="{{ download_url }}" class="text-blue-600 underline">下载</a>后收听。
+      </audio>
+    </div>
+  </div>
+
+  {% elif kind == 'pdf' %}
+  <!-- ── PDF ────────────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden" style="height: 85vh;">
+    <iframe src="{{ raw_url }}" class="w-full h-full border-0" title="{{ file_name }}"></iframe>
+  </div>
+
+  {% elif kind == 'text' %}
+  <!-- ── Text / Code ────────────────────────────────────────────────────── -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+      <span class="text-sm text-gray-500 font-mono">{{ file_name }}</span>
+      <button onclick="copyCode()" title="复制"
+        class="text-xs text-gray-500 hover:text-blue-600 flex items-center gap-1 transition">
+        <i class="fa-solid fa-copy"></i> 复制
+      </button>
+    </div>
+    <div class="overflow-auto max-h-[75vh]">
+      <pre class="!m-0 !rounded-none"><code id="code-block" class="{{ ext | replace('.', '') }}">{{ text_content }}</code></pre>
+    </div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => hljs.highlightAll());
+    function copyCode() {
+      const text = document.getElementById('code-block').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = event.currentTarget;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> 已复制';
+        setTimeout(() => btn.innerHTML = '<i class="fa-solid fa-copy"></i> 复制', 2000);
+      });
+    }
+  </script>
+
+  {% else %}
+  <!-- ── Unsupported ────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-200 py-20 flex flex-col items-center gap-4">
+    <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center">
+      <i class="fa-solid fa-file text-gray-400 text-4xl"></i>
+    </div>
+    <p class="text-gray-600 font-medium">无法预览此文件类型 ({{ ext }})</p>
+    <p class="text-gray-400 text-sm">{{ file_size }}</p>
+    <a href="{{ download_url }}"
+       class="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm transition">
+      <i class="fa-solid fa-download"></i>
+      下载文件
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
