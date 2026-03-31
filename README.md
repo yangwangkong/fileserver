@@ -120,4 +120,4 @@ This repository intentionally uses placeholder values in example config files. B
 
 ## License
 
-Add the license you want before publishing publicly.
+This project is released under the MIT License. See [LICENSE](LICENSE).
